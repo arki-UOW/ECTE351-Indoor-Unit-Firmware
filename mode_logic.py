@@ -34,9 +34,16 @@ class ModeLogic:
         }
 
     def set_mode(self, mode):
-        if mode not in ALLOWED_MODES:
+        """Apply a supported mode, accepting dashboard strings case-insensitively."""
+        if not isinstance(mode, str):
             return False
-        self.mode = mode
+
+        normalized = mode.strip().upper().replace("-", "_").replace(" ", "_")
+        if normalized not in ALLOWED_MODES:
+            return False
+
+        self.mode = normalized
+        self.manual_override = normalized == MANUAL
         return True
 
     def decide(self, environment_state, data):
