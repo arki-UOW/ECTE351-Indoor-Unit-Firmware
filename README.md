@@ -12,6 +12,34 @@ Target controller: Waveshare ESP32-S3-Nano running MicroPython.
 - MLX90614 — infrared surface/object temperature
 - mmWave presence sensor — occupancy / presence detection
 
+## Verified ESP32-S3-Nano interface map
+
+The indoor-unit firmware uses the following fixed firmware-side interface contract. The Nano header labels and GPIO mappings were checked against the Waveshare ESP32-S3-Nano pinout/schematic before physical integration.
+
+| Function | Nano header pin | ESP32-S3 GPIO | Firmware use |
+| --- | --- | ---: | --- |
+| I2C SDA | A4 | GPIO11 | Shared SDA for BME680, SGP40, SCD30 and MLX90614 |
+| I2C SCL | A5 | GPIO12 | Shared SCL for BME680, SGP40, SCD30 and MLX90614 |
+| mmWave UART TX | D8 | GPIO17 | ESP32 TX -> mmWave RX |
+| mmWave UART RX | D9 | GPIO18 | ESP32 RX <- mmWave TX |
+| mmWave digital OUT | D2 | GPIO5 | mmWave occupancy/presence digital output -> ESP32 input |
+| Ground | GND | GND | Common ground for the indoor sensors |
+
+Shared I2C configuration:
+
+- bus: `I2C(0)`
+- frequency: `100000` Hz (100 kHz)
+- BME680 address: `0x77`
+- SGP40 address: `0x59`
+- SCD30 address: `0x61`
+- MLX90614 address: `0x5A`
+
+The mmWave UART baud rate remains intentionally unset until the exact mmWave module/protocol is confirmed. The selected D8/D9 pins map directly to GPIO17/GPIO18, which are suitable for UART TX/RX on the ESP32-S3.
+
+### Important RGB LED note
+
+The sensor/mmWave pin contract above is verified. The current `config.py` still contains an older recovered RGB mapping (`GPIO14`, `GPIO16`, `GPIO15`). That mapping must **not** be treated as the Waveshare board's on-board RGB LED mapping. The Waveshare ESP32-S3-Nano schematic connects the on-board common-anode RGB LED to GPIO45, GPIO0 and GPIO46. The firmware RGB definition will be resolved separately before the LED is used so an old external/recovered LED assignment is not silently confused with the on-board indicator.
+
 ## Current status
 
 - Wi-Fi connection verified on the ESP32-S3-Nano.
