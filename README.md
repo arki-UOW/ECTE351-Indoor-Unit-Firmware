@@ -51,7 +51,7 @@ Target controller: Waveshare ESP32-S3-Nano running MicroPython.
 
 ## Firmware modules
 
-- `boot.py` - minimal boot setup plus a 3-second development REPL escape window
+- `boot.py` - minimal boot-time setup
 - `main.py` - top-level application loop and RPC command handler
 - `config.py` - non-secret firmware configuration, interface assignments and thresholds
 - `secrets.py` - local Wi-Fi and ThingsBoard credentials; intentionally ignored by Git
@@ -107,15 +107,9 @@ Negative RPC tests verified that unsupported methods and unsupported modes are r
 
 A malformed non-object `params` message could not be transmitted through the dashboard because ThingsBoard rejected that payload format before transmission. The firmware still includes defensive validation for that case.
 
-## Development REPL access
+## Development tooling note
 
-`boot.py` includes a 3-second startup window before `main.py` starts Wi-Fi/MQTT activity:
-
-```text
-[BOOT] Starting application in 3 seconds - Ctrl+C for REPL
-```
-
-This is intended to make `mpremote` file updates more reliable during development and reduce the need to unplug/replug the board when raw REPL cannot be entered while the application is busy.
+On this ESP32-S3 development setup, `mpremote` can intermittently fail to enter raw REPL and report `TransportError: could not enter raw repl`, even while the normal serial REPL remains reachable. This has been treated as a development-tooling issue rather than a firmware validation failure. No artificial boot delay is used in production firmware; when file transfer fails, reconnect/reset the development session and retry the transfer.
 
 ## Security
 
