@@ -31,14 +31,6 @@ LED_B_PIN = 15
 # ---------------------------------------------------------------------------
 # Indoor sensor interface contract
 # Target board: Waveshare ESP32-S3-Nano (Arduino Nano ESP32-compatible pinout)
-#
-# Shared I2C bus:
-#   A4 / GPIO11 -> SDA
-#   A5 / GPIO12 -> SCL
-#
-# The four I2C sensors have unique addresses and therefore share one bus.
-# Physical wiring and bus validation are performed separately during hardware
-# integration; these assignments define the firmware-side contract.
 # ---------------------------------------------------------------------------
 I2C_ID = 0
 I2C_SDA_PIN = 11   # board label A4
@@ -51,14 +43,37 @@ SCD30_I2C_ADDRESS = 0x61
 MLX90614_I2C_ADDRESS = 0x5A
 
 # mmWave presence sensor interface.
-# Module pins observed: 3V3, GND, TX, RX, OUT.
-# Reserve UART1 on D8/D9 and a separate digital input for OUT.
-# Sensor TX connects to ESP RX; sensor RX connects to ESP TX.
 MMWAVE_UART_ID = 1
 MMWAVE_UART_TX_PIN = 17   # board label D8 -> sensor RX
 MMWAVE_UART_RX_PIN = 18   # board label D9 -> sensor TX
 MMWAVE_OUT_PIN = 5        # board label D2 -> sensor OUT
-
-# Exact UART baud/protocol depends on the specific HMMD mmWave module firmware
-# and will be confirmed during physical integration.
 MMWAVE_UART_BAUDRATE = None
+
+# ---------------------------------------------------------------------------
+# Sensor-processing configuration
+# These ranges are sanity/validity limits, not comfort thresholds.
+# They prevent disconnected, corrupt or physically implausible readings from
+# being used by the decision logic.
+# ---------------------------------------------------------------------------
+SENSOR_FILTER_WINDOW = 3
+SENSOR_STALE_TIMEOUT_MS = 15000
+
+SENSOR_VALID_RANGES = {
+    "temperature_c": (-20.0, 60.0),
+    "humidity_pct": (0.0, 100.0),
+    "pressure_hpa": (300.0, 1100.0),
+    "voc_index": (0.0, 500.0),
+    "co2_ppm": (250.0, 10000.0),
+    "surface_temperature_c": (-70.0, 380.0),
+}
+
+# ---------------------------------------------------------------------------
+# Environmental targets recovered from the approved Autumn project material.
+# - Occupied-space CO2 target: below 1000 ppm.
+# - Relative humidity target: 40-60 %RH over 24 h for mould-risk reduction.
+# Exact temperature and VOC action thresholds were not specified in the
+# recovered material, so they are intentionally not invented here.
+# ---------------------------------------------------------------------------
+CO2_OCCUPIED_LIMIT_PPM = 1000.0
+HUMIDITY_TARGET_MIN_PCT = 40.0
+HUMIDITY_TARGET_MAX_PCT = 60.0
