@@ -27,6 +27,7 @@ Target controller: Waveshare ESP32-S3-Nano running MicroPython.
 - Temperature hysteresis verified: high condition enters above 24 C and clears below 22 C.
 - Humidity hysteresis verified: mould-risk condition enters above 60 %RH and clears below 55 %RH.
 - Occupied-space CO2 action threshold implemented at 1000 ppm.
+- Edge-case regression test suite added for exact thresholds, hysteresis transitions, occupancy behaviour, conflicting conditions, validation boundaries, rolling filter behaviour and health recovery.
 - Malformed-message handling and broader communications validation remain to be tested.
 - Physical sensor integration, live readings, calibration and bus-compatibility validation remain pending.
 
@@ -61,31 +62,36 @@ Target controller: Waveshare ESP32-S3-Nano running MicroPython.
 - `mode_logic.py` - operating mode and ventilation decisions
 - `diagnostics.py` - fault reporting and health checks
 - `tests/sensor_logic_smoke_test.py` - repeatable desktop smoke tests for the simulated sensor-processing/environment layer
+- `tests/sensor_logic_regression_test.py` - edge-case regression tests for threshold boundaries, state transitions and health recovery
 
 ## Sensor-processing verification
 
-Desktop tests using simulated sensor readings have verified the current processing and environmental logic independently of the physical sensors.
+Desktop tests using simulated sensor readings verify the current processing and environmental logic independently of the physical sensors.
 
 Verified behaviour includes:
 
 - valid readings are accepted and marked `VALID`;
 - missing or physically implausible readings are rejected;
-- sensor health progresses from `VALID` to `INVALID` and then `STALE` when valid data does not return before the configured timeout;
-- the 3-sample moving-average filter produces the expected result (20 C, 26 C, 32 C -> 26 C);
-- occupied CO2 at 1400 ppm produces `ACTION_REQUIRED`;
-- humidity above 60 %RH produces `MOULD_RISK`;
-- temperature above 24 C produces `ACTION_REQUIRED`;
-- temperature remains in the high state through the deadband and clears below 22 C;
-- humidity remains in mould-risk through the deadband and clears below 55 %RH;
-- missing critical data produces `WARNING`.
+- sensor health progresses from `VALID` to `INVALID` and then `STALE` when valid data does not return before the configured timeout, and recovers to `VALID` when data returns;
+- the 3-sample moving-average filter produces the expected values and correctly discards the oldest sample when the window rolls over;
+- occupied CO2 below/at/above the 1000 ppm boundary behaves as defined;
+- unoccupied high CO2 does not independently request environmental action;
+- humidity above 60 %RH produces `MOULD_RISK` and the exact 60/55 %RH hysteresis boundaries are tested;
+- temperature above 24 C produces `ACTION_REQUIRED` and the exact 24/22 C hysteresis boundaries are tested;
+- simultaneous high humidity and high CO2 follows the defined environmental-state priority;
+- missing critical data produces `WARNING`;
+- validity-range endpoints and invalid occupancy data types are checked.
 
 These tests validate the software decision layer only. They do not replace live-sensor integration, calibration, electrical checks or I2C/UART bus validation.
 
-To rerun the repeatable desktop smoke test from the repository root (with local `secrets.py` present):
+To rerun both desktop suites from the repository root (with local `secrets.py` present):
 
 ```powershell
 python tests/sensor_logic_smoke_test.py
+python tests/sensor_logic_regression_test.py
 ```
+
+Both should finish with a `PASS` line.
 
 ## Communications verification
 
