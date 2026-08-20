@@ -28,13 +28,37 @@ LED_R_PIN = 14
 LED_G_PIN = 16
 LED_B_PIN = 15
 
-# Sensor buses will be locked down in the sensor-integration stage.
+# ---------------------------------------------------------------------------
+# Indoor sensor interface contract
+# Target board: Waveshare ESP32-S3-Nano (Arduino Nano ESP32-compatible pinout)
+#
+# Shared I2C bus:
+#   A4 / GPIO11 -> SDA
+#   A5 / GPIO12 -> SCL
+#
+# The four I2C sensors have unique addresses and therefore share one bus.
+# Physical wiring and bus validation are performed separately during hardware
+# integration; these assignments define the firmware-side contract.
+# ---------------------------------------------------------------------------
 I2C_ID = 0
-I2C_SCL_PIN = None
-I2C_SDA_PIN = None
+I2C_SDA_PIN = 11   # board label A4
+I2C_SCL_PIN = 12   # board label A5
 I2C_FREQ_HZ = 100000
 
-UART_ID = 1
-UART_TX_PIN = None
-UART_RX_PIN = None
-UART_BAUDRATE = 9600
+BME680_I2C_ADDRESS = 0x77
+SGP40_I2C_ADDRESS = 0x59
+SCD30_I2C_ADDRESS = 0x61
+MLX90614_I2C_ADDRESS = 0x5A
+
+# mmWave presence sensor interface.
+# Module pins observed: 3V3, GND, TX, RX, OUT.
+# Reserve UART1 on D8/D9 and a separate digital input for OUT.
+# Sensor TX connects to ESP RX; sensor RX connects to ESP TX.
+MMWAVE_UART_ID = 1
+MMWAVE_UART_TX_PIN = 17   # board label D8 -> sensor RX
+MMWAVE_UART_RX_PIN = 18   # board label D9 -> sensor TX
+MMWAVE_OUT_PIN = 5        # board label D2 -> sensor OUT
+
+# Exact UART baud/protocol depends on the specific HMMD mmWave module firmware
+# and will be confirmed during physical integration.
+MMWAVE_UART_BAUDRATE = None
