@@ -22,11 +22,13 @@ DEFAULT_MANUAL_OVERRIDE = False
 DEFAULT_VENTILATION_REQUEST = False
 DEFAULT_SYSTEM_CONDITION = "INITIALISING"
 
-# RGB LED pins from the recovered working firmware.
-# Common anode: LOW = on, HIGH = off.
-LED_R_PIN = 14
-LED_G_PIN = 16
-LED_B_PIN = 15
+# Waveshare ESP32-S3-Nano on-board common-anode RGB LED.
+# LOW = channel on, HIGH = channel off.
+# GPIO0 and GPIO46 are ESP32-S3 strapping pins, so the LED should only be
+# driven after normal boot and must not be used to alter reset/boot behaviour.
+LED_R_PIN = 46
+LED_G_PIN = 0
+LED_B_PIN = 45
 
 # ---------------------------------------------------------------------------
 # Indoor sensor interface contract
