@@ -10,7 +10,9 @@ THINGSBOARD_HOST = "mqtt.thingsboard.cloud"
 THINGSBOARD_PORT = 1883
 MQTT_CLIENT_ID = "esp32s3-nano"
 
-WIFI_CONNECT_TIMEOUT_S = 30
+# Some access points take longer to complete association/DHCP after ESP32 reset.
+WIFI_CONNECT_TIMEOUT_S = 60
+WIFI_RETRY_DELAY_S = 2
 MQTT_KEEPALIVE_S = 60
 TELEMETRY_INTERVAL_S = 5
 
