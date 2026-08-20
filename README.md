@@ -16,28 +16,30 @@ Target controller: Waveshare ESP32-S3-Nano running MicroPython.
 
 - Wi-Fi connection verified on the ESP32-S3-Nano.
 - MQTT connection to ThingsBoard verified using the assigned host, port and access token.
-- End-to-end telemetry publishing verified; `firmware_status=online` and `connectivity_test=1` were received on ThingsBoard.
+- End-to-end telemetry publishing verified.
 - Wi-Fi loss and automatic reconnection verified.
 - MQTT socket failure after Wi-Fi loss and automatic MQTT reconnection verified.
-- Default startup/reset state verified: `AUTO` mode, no manual override, no ventilation request and `INITIALISING` system condition.
+- Default startup/reset state verified: `AUTO`, no manual override, no ventilation request, `INITIALISING` condition.
+- Live ThingsBoard RPC dashboard control verified end-to-end.
+- All six valid dashboard modes verified: `AUTO`, `MANUAL`, `SLEEP`, `WORK`, `ENERGY_SAVING`, `PURGE`.
+- Invalid modes and unsupported RPC methods are rejected safely with an RPC response; a subsequent valid command still succeeds.
 - Modular firmware architecture established.
 - Firmware-side GPIO/interface map confirmed for the shared I2C sensors and mmWave interface.
 - Sensor-processing logic verified with simulated inputs: validity rejection, per-field health state, stale-data detection and 3-sample moving-average filtering.
-- Environmental-condition outputs verified with simulated inputs: `NORMAL`, `WARNING`, `ACTION_REQUIRED` and `MOULD_RISK`.
+- Environmental-condition outputs verified with simulated inputs: `NORMAL`, `WARNING`, `ACTION_REQUIRED`, `MOULD_RISK`.
 - Temperature hysteresis verified: high condition enters above 24 C and clears below 22 C.
 - Humidity hysteresis verified: mould-risk condition enters above 60 %RH and clears below 55 %RH.
 - Occupied-space CO2 action threshold implemented at 1000 ppm.
-- Edge-case regression test suite added for exact thresholds, hysteresis transitions, occupancy behaviour, conflicting conditions, validation boundaries, rolling filter behaviour and health recovery.
-- Malformed-message handling and broader communications validation remain to be tested.
+- Edge-case regression suite passes.
 - Physical sensor integration, live readings, calibration and bus-compatibility validation remain pending.
 
 ## Development approach
 
 1. Verify Wi-Fi connectivity. ✅
 2. Verify MQTT/ThingsBoard connectivity. ✅
-3. Implement Wi-Fi/MQTT reconnection and timeout handling. In progress — malformed-message test pending.
+3. Implement Wi-Fi/MQTT reconnection and timeout handling. ✅
 4. Define and validate default behaviour after reset/reconnection. ✅
-5. Validate communications handling under simulated failure conditions.
+5. Validate dashboard/RPC communications and rejection of invalid commands. ✅
 6. Confirm final GPIO/interface map. ✅ firmware-side contract
 7. Integrate sensors individually and verify bus compatibility. Pending physical integration.
 8. Replace simulated values with live sensor data. Pending physical integration.
@@ -49,20 +51,21 @@ Target controller: Waveshare ESP32-S3-Nano running MicroPython.
 
 ## Firmware modules
 
-- `boot.py` - minimal boot-time setup
-- `main.py` - top-level application loop
+- `boot.py` - minimal boot setup plus a 3-second development REPL escape window
+- `main.py` - top-level application loop and RPC command handler
 - `config.py` - non-secret firmware configuration, interface assignments and thresholds
 - `secrets.py` - local Wi-Fi and ThingsBoard credentials; intentionally ignored by Git
 - `secrets.example.py` - safe template for local secrets
 - `wifi_manager.py` - Wi-Fi connection/reconnection
-- `mqtt_manager.py` - ThingsBoard MQTT connection, telemetry and command handling
+- `mqtt_manager.py` - ThingsBoard MQTT connection, telemetry, RPC subscription and RPC responses
 - `sensors.py` - sensor initialisation and raw readings
 - `sensor_processing.py` - validation, filtering and health/status handling
 - `environment_logic.py` - environmental thresholds, hysteresis and state generation
 - `mode_logic.py` - operating mode and ventilation decisions
 - `diagnostics.py` - fault reporting and health checks
-- `tests/sensor_logic_smoke_test.py` - repeatable desktop smoke tests for the simulated sensor-processing/environment layer
-- `tests/sensor_logic_regression_test.py` - edge-case regression tests for threshold boundaries, state transitions and health recovery
+- `tests/sensor_logic_smoke_test.py` - repeatable desktop smoke tests
+- `tests/sensor_logic_regression_test.py` - edge-case regression tests
+- `docs/VALIDATION.md` - detailed record of completed software and live communications verification
 
 ## Sensor-processing verification
 
@@ -70,21 +73,16 @@ Desktop tests using simulated sensor readings verify the current processing and 
 
 Verified behaviour includes:
 
-- valid readings are accepted and marked `VALID`;
-- missing or physically implausible readings are rejected;
-- sensor health progresses from `VALID` to `INVALID` and then `STALE` when valid data does not return before the configured timeout, and recovers to `VALID` when data returns;
-- the 3-sample moving-average filter produces the expected values and correctly discards the oldest sample when the window rolls over;
-- occupied CO2 below/at/above the 1000 ppm boundary behaves as defined;
-- unoccupied high CO2 does not independently request environmental action;
-- humidity above 60 %RH produces `MOULD_RISK` and the exact 60/55 %RH hysteresis boundaries are tested;
-- temperature above 24 C produces `ACTION_REQUIRED` and the exact 24/22 C hysteresis boundaries are tested;
-- simultaneous high humidity and high CO2 follows the defined environmental-state priority;
-- missing critical data produces `WARNING`;
-- validity-range endpoints and invalid occupancy data types are checked.
+- valid readings accepted and marked `VALID`;
+- missing or physically implausible readings rejected;
+- `VALID -> INVALID -> STALE -> VALID` health recovery;
+- 3-sample moving-average filtering and rolling-window behaviour;
+- occupied CO2 behaviour around the 1000 ppm boundary;
+- temperature and humidity hysteresis boundaries;
+- environmental-state priority when multiple conditions are active;
+- validity-range endpoints and invalid occupancy data types.
 
-These tests validate the software decision layer only. They do not replace live-sensor integration, calibration, electrical checks or I2C/UART bus validation.
-
-To rerun both desktop suites from the repository root (with local `secrets.py` present):
+Run from the repository root:
 
 ```powershell
 python tests/sensor_logic_smoke_test.py
@@ -95,13 +93,29 @@ Both should finish with a `PASS` line.
 
 ## Communications verification
 
-The current communications firmware has been tested on the Waveshare ESP32-S3-Nano with MicroPython v1.28.0. The board successfully connects to Wi-Fi, establishes an MQTT session with ThingsBoard and publishes telemetry to `v1/devices/me/telemetry`.
+The firmware has been tested live on the Waveshare ESP32-S3-Nano with MicroPython v1.28.0. The board connects to Wi-Fi, establishes MQTT with ThingsBoard, publishes telemetry and recovers after a deliberate Wi-Fi outage and stale MQTT socket.
 
-A deliberate Wi-Fi outage was also tested. The firmware detected the Wi-Fi loss, reconnected when the network became available again, detected the stale MQTT socket (`ECONNABORTED`) and automatically established a new MQTT connection.
+ThingsBoard dashboard RPC testing is also complete. The device subscribes to:
 
-The reset/default configuration was tested directly on the ESP32-S3-Nano. A new `ModeLogic` instance initializes to `AUTO`, `manual_override=False`, `ventilation_request=False` and `system_condition=INITIALISING`.
+```text
+v1/devices/me/rpc/request/+
+```
 
-During development, an Optus access point repeatedly returned MicroPython status `202` (`STAT_WRONG_PASSWORD`) despite the credential being confirmed. The same firmware connected successfully through an iPhone hotspot, proving the ESP32 Wi-Fi/MQTT firmware path. Router compatibility can be investigated separately if required.
+The dashboard `set_mode` command was verified for `auto`, `manual`, `sleep`, `work`, `energy_saving` and `purge`. Each command was received by the ESP32, applied, and acknowledged on the matching `v1/devices/me/rpc/response/<request_id>` topic.
+
+Negative RPC tests verified that unsupported methods and unsupported modes are rejected without crashing or disconnecting the firmware. A valid `auto` command succeeded immediately after the rejected commands, confirming continued operation after invalid RPC traffic.
+
+A malformed non-object `params` message could not be transmitted through the dashboard because ThingsBoard rejected that payload format before transmission. The firmware still includes defensive validation for that case.
+
+## Development REPL access
+
+`boot.py` includes a 3-second startup window before `main.py` starts Wi-Fi/MQTT activity:
+
+```text
+[BOOT] Starting application in 3 seconds - Ctrl+C for REPL
+```
+
+This is intended to make `mpremote` file updates more reliable during development and reduce the need to unplug/replug the board when raw REPL cannot be entered while the application is busy.
 
 ## Security
 
