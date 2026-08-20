@@ -1,22 +1,26 @@
-"""Configuration for the ECTE351 indoor unit.
+"""Non-secret configuration for the ECTE351 indoor unit.
 
-IMPORTANT: keep real passwords and ThingsBoard tokens out of GitHub.
-Replace these placeholders only in the local copy used for flashing/testing.
+Real Wi-Fi credentials and the ThingsBoard access token live in secrets.py.
+secrets.py is intentionally excluded from Git so credentials are never committed.
 """
 
-WIFI_SSID = "YOUR_WIFI_SSID"
-WIFI_PASSWORD = "YOUR_WIFI_PASSWORD"
+from secrets import WIFI_SSID, WIFI_PASSWORD, THINGSBOARD_ACCESS_TOKEN
 
-THINGSBOARD_HOST = "YOUR_THINGSBOARD_HOST"
+THINGSBOARD_HOST = "mqtt.thingsboard.cloud"
 THINGSBOARD_PORT = 1883
-THINGSBOARD_ACCESS_TOKEN = "YOUR_DEVICE_ACCESS_TOKEN"
-MQTT_CLIENT_ID = "ECTE351_Indoor_ESP32S3"
+MQTT_CLIENT_ID = "esp32s3-nano"
 
-WIFI_CONNECT_TIMEOUT_S = 20
+WIFI_CONNECT_TIMEOUT_S = 30
 MQTT_KEEPALIVE_S = 60
-TELEMETRY_INTERVAL_S = 2
+TELEMETRY_INTERVAL_S = 5
 
-# Sensor bus placeholders. Update after final pin assignment is confirmed.
+# RGB LED pins from the recovered working firmware.
+# Common anode: LOW = on, HIGH = off.
+LED_R_PIN = 14
+LED_G_PIN = 16
+LED_B_PIN = 15
+
+# Sensor buses will be locked down in the sensor-integration stage.
 I2C_ID = 0
 I2C_SCL_PIN = None
 I2C_SDA_PIN = None
