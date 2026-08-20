@@ -22,6 +22,7 @@ class MQTTManager:
         self.rpc_callback = None
         self.last_connect_attempt_ms = 0
         self.reconnect_delay_ms = 3000
+        self.last_healthcheck_ms = 0
 
     def set_rpc_callback(self, callback):
         """Register callback(topic, payload) for decoded ThingsBoard RPC requests."""
@@ -31,9 +32,15 @@ class MQTTManager:
         print("[MQTT] RX:", topic, message)
 
         try:
+            if isinstance(message, bytes):
+                message = message.decode("utf-8")
             payload = json.loads(message)
         except Exception as exc:
             print("[MQTT] Invalid message ignored:", exc)
+            return
+
+        if not isinstance(payload, dict):
+            print("[MQTT] Invalid message ignored: payload must be an object")
             return
 
         if self.rpc_callback is None:
@@ -54,6 +61,7 @@ class MQTTManager:
                 pass
         self.client = None
         self.connected = False
+        self.last_healthcheck_ms = 0
 
     def connect(self, force=False):
         now = time.ticks_ms()
@@ -80,6 +88,7 @@ class MQTTManager:
             self.client.connect()
             self.client.subscribe(RPC_REQUEST_TOPIC)
             self.connected = True
+            self.last_healthcheck_ms = time.ticks_ms()
             print("[MQTT] Connected")
             return True
         except Exception as exc:
@@ -164,5 +173,25 @@ class MQTTManager:
             return False
         except Exception as exc:
             print("[MQTT] Message check failed:", exc)
+            self._cleanup_client()
+            return False
+
+    def health_check(self, force=False):
+        """Probe the broker periodically so silent connection loss is detected."""
+        if not self.connected or self.client is None:
+            return False
+
+        now = time.ticks_ms()
+        interval_ms = int(config.MQTT_HEALTHCHECK_INTERVAL_S * 1000)
+        if not force and self.last_healthcheck_ms:
+            if time.ticks_diff(now, self.last_healthcheck_ms) < interval_ms:
+                return True
+
+        try:
+            self.client.ping()
+            self.last_healthcheck_ms = now
+            return True
+        except Exception as exc:
+            print("[MQTT] Health check failed:", exc)
             self._cleanup_client()
             return False
