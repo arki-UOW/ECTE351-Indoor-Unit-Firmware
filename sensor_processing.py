@@ -11,6 +11,20 @@ STALE = "STALE"
 FAULT = "FAULT"
 
 
+def _ticks_ms():
+    """Return a monotonic millisecond counter on MicroPython or desktop Python."""
+    if hasattr(time, "ticks_ms"):
+        return time.ticks_ms()
+    return int(time.monotonic() * 1000)
+
+
+def _ticks_diff(new_ms, old_ms):
+    """Return elapsed milliseconds on MicroPython or desktop Python."""
+    if hasattr(time, "ticks_diff"):
+        return time.ticks_diff(new_ms, old_ms)
+    return new_ms - old_ms
+
+
 class SensorProcessor:
     def __init__(self):
         self.history = {}
@@ -18,7 +32,7 @@ class SensorProcessor:
         self.health = {}
 
     def _now_ms(self):
-        return time.ticks_ms()
+        return _ticks_ms()
 
     def _is_number(self, value):
         return isinstance(value, (int, float)) and not isinstance(value, bool)
@@ -58,7 +72,7 @@ class SensorProcessor:
         if last_valid is None:
             return INITIALISING
 
-        age_ms = time.ticks_diff(now_ms, last_valid)
+        age_ms = _ticks_diff(now_ms, last_valid)
         if age_ms >= config.SENSOR_STALE_TIMEOUT_MS:
             return STALE
 
