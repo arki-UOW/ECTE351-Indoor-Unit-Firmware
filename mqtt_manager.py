@@ -11,6 +11,8 @@ import config
 TELEMETRY_TOPIC = b"v1/devices/me/telemetry"
 ATTRIBUTES_TOPIC = b"v1/devices/me/attributes"
 RPC_REQUEST_TOPIC = b"v1/devices/me/rpc/request/+"
+RPC_REQUEST_PREFIX = b"v1/devices/me/rpc/request/"
+RPC_RESPONSE_PREFIX = b"v1/devices/me/rpc/response/"
 
 
 class MQTTManager:
@@ -21,14 +23,28 @@ class MQTTManager:
         self.last_connect_attempt_ms = 0
         self.reconnect_delay_ms = 3000
 
+    def set_rpc_callback(self, callback):
+        """Register callback(topic, payload) for decoded ThingsBoard RPC requests."""
+        self.rpc_callback = callback
+
     def _on_message(self, topic, message):
         print("[MQTT] RX:", topic, message)
-        if self.rpc_callback is not None:
-            try:
-                payload = json.loads(message)
-                self.rpc_callback(topic, payload)
-            except Exception as exc:
-                print("[MQTT] Invalid message ignored:", exc)
+
+        try:
+            payload = json.loads(message)
+        except Exception as exc:
+            print("[MQTT] Invalid message ignored:", exc)
+            return
+
+        if self.rpc_callback is None:
+            print("[MQTT] RPC received but no handler is registered")
+            return
+
+        try:
+            self.rpc_callback(topic, payload)
+        except Exception as exc:
+            # A malformed/unsupported command must never crash the MQTT loop.
+            print("[MQTT] RPC handler error:", exc)
 
     def _cleanup_client(self):
         if self.client is not None:
@@ -100,6 +116,31 @@ class MQTTManager:
             return True
         except Exception as exc:
             print("[MQTT] Attribute publish failed:", exc)
+            self._cleanup_client()
+            return False
+
+    def publish_rpc_response(self, request_topic, payload):
+        """Reply to a ThingsBoard server-side RPC request using its request ID."""
+        if not self.connected or self.client is None:
+            return False
+
+        if not isinstance(request_topic, bytes) or not request_topic.startswith(RPC_REQUEST_PREFIX):
+            print("[MQTT] Cannot respond: invalid RPC request topic")
+            return False
+
+        request_id = request_topic[len(RPC_REQUEST_PREFIX):]
+        if not request_id:
+            print("[MQTT] Cannot respond: missing RPC request ID")
+            return False
+
+        try:
+            response_topic = RPC_RESPONSE_PREFIX + request_id
+            message = json.dumps(payload)
+            self.client.publish(response_topic, message)
+            print("[MQTT] RPC response:", response_topic, message)
+            return True
+        except Exception as exc:
+            print("[MQTT] RPC response failed:", exc)
             self._cleanup_client()
             return False
 
