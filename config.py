@@ -16,6 +16,12 @@ WIFI_RETRY_DELAY_S = 2
 MQTT_KEEPALIVE_S = 60
 TELEMETRY_INTERVAL_S = 5
 
+# Safe runtime defaults applied after boot/reset.
+DEFAULT_OPERATING_MODE = "AUTO"
+DEFAULT_MANUAL_OVERRIDE = False
+DEFAULT_VENTILATION_REQUEST = False
+DEFAULT_SYSTEM_CONDITION = "INITIALISING"
+
 # RGB LED pins from the recovered working firmware.
 # Common anode: LOW = on, HIGH = off.
 LED_R_PIN = 14
