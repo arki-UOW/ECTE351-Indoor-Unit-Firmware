@@ -52,8 +52,6 @@ MMWAVE_UART_BAUDRATE = None
 # ---------------------------------------------------------------------------
 # Sensor-processing configuration
 # These ranges are sanity/validity limits, not comfort thresholds.
-# They prevent disconnected, corrupt or physically implausible readings from
-# being used by the decision logic.
 # ---------------------------------------------------------------------------
 SENSOR_FILTER_WINDOW = 3
 SENSOR_STALE_TIMEOUT_MS = 15000
@@ -68,12 +66,20 @@ SENSOR_VALID_RANGES = {
 }
 
 # ---------------------------------------------------------------------------
-# Environmental targets recovered from the approved Autumn project material.
-# - Occupied-space CO2 target: below 1000 ppm.
-# - Relative humidity target: 40-60 %RH over 24 h for mould-risk reduction.
-# Exact temperature and VOC action thresholds were not specified in the
-# recovered material, so they are intentionally not invented here.
+# Environmental targets recovered from the Autumn project material.
+# Temperature hysteresis: activate above 24 C, clear only below 22 C.
+# Humidity hysteresis: high-risk above 60 %RH, clear only below 55 %RH.
+# Occupied-space CO2 target: below 1000 ppm.
+# Mould-risk target: maintain RH within 40-60 %RH over 24 h.
+# No numeric VOC action threshold was specified in the recovered Autumn
+# material, so VOC remains monitored/validated but does not independently
+# change the environmental state yet.
 # ---------------------------------------------------------------------------
-CO2_OCCUPIED_LIMIT_PPM = 1000.0
+TEMPERATURE_HIGH_ON_C = 24.0
+TEMPERATURE_HIGH_OFF_C = 22.0
+
 HUMIDITY_TARGET_MIN_PCT = 40.0
-HUMIDITY_TARGET_MAX_PCT = 60.0
+HUMIDITY_HIGH_ON_PCT = 60.0
+HUMIDITY_HIGH_OFF_PCT = 55.0
+
+CO2_OCCUPIED_LIMIT_PPM = 1000.0
