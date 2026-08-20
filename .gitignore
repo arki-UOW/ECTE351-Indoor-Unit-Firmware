@@ -1,0 +1,7 @@
+# Local credentials - never commit
+secrets.py
+
+# Python/editor noise
+__pycache__/
+*.pyc
+.vscode/
