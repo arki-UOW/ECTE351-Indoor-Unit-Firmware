@@ -84,8 +84,18 @@ def main():
             time.sleep(2)
             continue
 
-        mqtt.check_messages()
-        time.sleep(config.TELEMETRY_INTERVAL_S)
+        # Check RPC traffic frequently so dashboard commands are responsive.
+        if not mqtt.check_messages():
+            diagnostics.report_error("mqtt", "message polling failed")
+            time.sleep_ms(config.MQTT_POLL_INTERVAL_MS)
+            continue
+
+        # Periodic MQTT PING detects silent/stale broker connections that have
+        # not yet produced a socket error during normal polling.
+        if not mqtt.health_check():
+            diagnostics.report_error("mqtt", "health check failed")
+
+        time.sleep_ms(config.MQTT_POLL_INTERVAL_MS)
 
 
 try:
