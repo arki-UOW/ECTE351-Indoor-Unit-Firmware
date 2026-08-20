@@ -23,6 +23,9 @@ The indoor-unit firmware uses the following fixed firmware-side interface contra
 | mmWave UART TX | D8 | GPIO17 | ESP32 TX -> mmWave RX |
 | mmWave UART RX | D9 | GPIO18 | ESP32 RX <- mmWave TX |
 | mmWave digital OUT | D2 | GPIO5 | mmWave occupancy/presence digital output -> ESP32 input |
+| RGB LED red | On-board | GPIO46 | Common-anode red channel; LOW = on |
+| RGB LED green | On-board | GPIO0 | Common-anode green channel; LOW = on |
+| RGB LED blue | On-board | GPIO45 | Common-anode blue channel; LOW = on |
 | Ground | GND | GND | Common ground for the indoor sensors |
 
 Shared I2C configuration:
@@ -36,9 +39,11 @@ Shared I2C configuration:
 
 The mmWave UART baud rate remains intentionally unset until the exact mmWave module/protocol is confirmed. The selected D8/D9 pins map directly to GPIO17/GPIO18, which are suitable for UART TX/RX on the ESP32-S3.
 
-### Important RGB LED note
+### RGB LED note
 
-The sensor/mmWave pin contract above is verified. The current `config.py` still contains an older recovered RGB mapping (`GPIO14`, `GPIO16`, `GPIO15`). That mapping must **not** be treated as the Waveshare board's on-board RGB LED mapping. The Waveshare ESP32-S3-Nano schematic connects the on-board common-anode RGB LED to GPIO45, GPIO0 and GPIO46. The firmware RGB definition will be resolved separately before the LED is used so an old external/recovered LED assignment is not silently confused with the on-board indicator.
+The on-board Waveshare RGB LED is common-anode and is mapped as red=`GPIO46`, green=`GPIO0`, blue=`GPIO45`. The older recovered `GPIO14/GPIO16/GPIO15` mapping has been removed from `config.py` because it did not describe the board's on-board RGB LED.
+
+`GPIO0` and `GPIO46` are ESP32-S3 strapping pins. The firmware therefore treats the RGB LED as a runtime status indicator only: these pins should be driven only after normal boot and must not be used to alter reset/boot behaviour.
 
 ## Current status
 
@@ -52,7 +57,7 @@ The sensor/mmWave pin contract above is verified. The current `config.py` still 
 - All six valid dashboard modes verified: `AUTO`, `MANUAL`, `SLEEP`, `WORK`, `ENERGY_SAVING`, `PURGE`.
 - Invalid modes and unsupported RPC methods are rejected safely with an RPC response; a subsequent valid command still succeeds.
 - Modular firmware architecture established.
-- Firmware-side GPIO/interface map confirmed for the shared I2C sensors and mmWave interface.
+- Firmware-side GPIO/interface map confirmed for the shared I2C sensors, mmWave interface and on-board RGB LED.
 - Sensor-processing logic verified with simulated inputs: validity rejection, per-field health state, stale-data detection and 3-sample moving-average filtering.
 - Environmental-condition outputs verified with simulated inputs: `NORMAL`, `WARNING`, `ACTION_REQUIRED`, `MOULD_RISK`.
 - Temperature hysteresis verified: high condition enters above 24 C and clears below 22 C.
