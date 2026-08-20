@@ -1,14 +1,10 @@
-"""Top-level firmware application.
-
-Initial milestone: prove Wi-Fi and ThingsBoard MQTT connectivity first.
-Later stages will enable real sensors, processing, environmental logic and
-outdoor-controller commands without changing the overall architecture.
-"""
+"""Top-level firmware application."""
 
 import time
 
 import config
 from diagnostics import Diagnostics
+from mode_logic import ModeLogic
 from mqtt_manager import MQTTManager
 from wifi_manager import WiFiManager
 
@@ -17,8 +13,49 @@ def main():
     diagnostics = Diagnostics()
     wifi = WiFiManager()
     mqtt = MQTTManager()
+    mode_logic = ModeLogic()
 
     print("\nECTE351 Indoor Unit starting...")
+
+    def handle_rpc(topic, payload):
+        """Validate and execute supported ThingsBoard RPC commands safely."""
+        method = payload.get("method") if isinstance(payload, dict) else None
+        params = payload.get("params") if isinstance(payload, dict) else None
+
+        if method != "set_mode":
+            print("[RPC] Rejected unsupported method:", method)
+            mqtt.publish_rpc_response(topic, {
+                "success": False,
+                "error": "unsupported_method",
+            })
+            return
+
+        if not isinstance(params, dict):
+            print("[RPC] Rejected set_mode: params must be an object")
+            mqtt.publish_rpc_response(topic, {
+                "success": False,
+                "error": "invalid_params",
+            })
+            return
+
+        requested_mode = params.get("mode")
+        if not mode_logic.set_mode(requested_mode):
+            print("[RPC] Rejected unsupported mode:", requested_mode)
+            mqtt.publish_rpc_response(topic, {
+                "success": False,
+                "error": "unsupported_mode",
+                "requested_mode": requested_mode,
+            })
+            return
+
+        print("[RPC] Mode set to:", mode_logic.mode)
+        mqtt.publish_rpc_response(topic, {
+            "success": True,
+            "mode": mode_logic.mode,
+        })
+        mqtt.publish_attributes({"mode": mode_logic.mode})
+
+    mqtt.set_rpc_callback(handle_rpc)
 
     if not wifi.connect():
         diagnostics.report_error("wifi", "initial connection failed")
@@ -28,13 +65,13 @@ def main():
         diagnostics.report_error("mqtt", "initial connection failed")
         return
 
-    # Stage-1 proof-of-connection telemetry.
     mqtt.publish_telemetry({
         "firmware_status": "online",
         "connectivity_test": 1,
     })
+    mqtt.publish_attributes(mode_logic.status())
 
-    print("[SYSTEM] Stage-1 connectivity test complete")
+    print("[SYSTEM] Connectivity/RPC test firmware ready")
 
     while True:
         if not wifi.ensure_connected():
