@@ -17,6 +17,7 @@ MQTT_KEEPALIVE_S = 60
 MQTT_POLL_INTERVAL_MS = 200
 MQTT_HEALTHCHECK_INTERVAL_S = 30
 TELEMETRY_INTERVAL_S = 5
+SENSOR_RESCAN_INTERVAL_S = 30
 
 # Safe runtime defaults applied after boot/reset.
 DEFAULT_OPERATING_MODE = "AUTO"
@@ -45,13 +46,18 @@ BME680_I2C_ADDRESS = 0x77
 SGP40_I2C_ADDRESS = 0x59
 SCD30_I2C_ADDRESS = 0x61
 MLX90614_I2C_ADDRESS = 0x5A
+SCD30_MEASUREMENT_INTERVAL_S = 2
 
-# mmWave presence sensor interface.
+# Waveshare HMMD-mmWave-Sensor interface.
+# OT2 is physically connected and is the active occupancy input.
+# UART pins are reserved for the final UART validation step, but TX/RX are not
+# physically connected yet, so UART remains disabled at runtime.
 MMWAVE_UART_ID = 1
 MMWAVE_UART_TX_PIN = 17   # board label D8 -> sensor RX
 MMWAVE_UART_RX_PIN = 18   # board label D9 -> sensor TX
-MMWAVE_OUT_PIN = 5        # board label D2 -> sensor OUT
-MMWAVE_UART_BAUDRATE = None
+MMWAVE_OUT_PIN = 5        # board label D2 -> sensor OT2 / GPIO OUT
+MMWAVE_UART_BAUDRATE = 115200
+MMWAVE_UART_ENABLED = False
 
 # ---------------------------------------------------------------------------
 # Sensor-processing configuration
@@ -76,8 +82,8 @@ SENSOR_VALID_RANGES = {
 # Occupied-space CO2 target: below 1000 ppm.
 # Mould-risk target: maintain RH within 40-60 %RH over 24 h.
 # No numeric VOC action threshold was specified in the recovered Autumn
-# material, so VOC remains monitored/validated but does not independently
-# change the environmental state yet.
+# material, so the SGP40 raw signal is monitored/telemetried but does not
+# independently change the environmental state yet.
 # ---------------------------------------------------------------------------
 TEMPERATURE_HIGH_ON_C = 24.0
 TEMPERATURE_HIGH_OFF_C = 22.0
