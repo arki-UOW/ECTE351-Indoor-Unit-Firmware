@@ -17,7 +17,6 @@ class ModeLogic:
         self.reset_defaults()
 
     def reset_defaults(self):
-        """Restore deterministic safe state after boot/reset/recovery."""
         mode = config.DEFAULT_OPERATING_MODE
         self.mode = mode if mode in ALLOWED_MODES else AUTO
         self.manual_override = bool(config.DEFAULT_MANUAL_OVERRIDE)
@@ -34,7 +33,6 @@ class ModeLogic:
         }
 
     def set_mode(self, mode):
-        """Apply a supported mode, accepting dashboard strings case-insensitively."""
         if not isinstance(mode, str):
             return False
 
@@ -44,13 +42,38 @@ class ModeLogic:
 
         self.mode = normalized
         self.manual_override = normalized == MANUAL
+
+        if normalized == PURGE:
+            self.ventilation_request = True
+        elif normalized != MANUAL:
+            self.ventilation_request = False
+
+        return True
+
+    def set_manual_ventilation(self, enabled):
+        if self.mode != MANUAL or not isinstance(enabled, bool):
+            return False
+        self.ventilation_request = enabled
         return True
 
     def decide(self, environment_state, data):
-        """Return a safe placeholder command for the outdoor controller."""
         self.system_condition = environment_state
+
+        action_needed = environment_state in ("ACTION_REQUIRED", "MOULD_RISK")
+
+        if self.mode == PURGE:
+            self.ventilation_request = True
+        elif self.mode == MANUAL:
+            # Keep the explicit dashboard/manual request.
+            pass
+        else:
+            # Until mode-specific thresholds are formally defined, all automatic
+            # modes retain the same safety response to confirmed action states.
+            self.ventilation_request = bool(action_needed)
+
         return {
             "mode": self.mode,
             "environment_state": environment_state,
             "ventilation_request": self.ventilation_request,
+            "manual_override": self.manual_override,
         }
