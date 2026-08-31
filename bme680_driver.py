@@ -2,6 +2,9 @@
 
 Adapted from the MIT-licensed BME680 MicroPython driver by Robert Hammelrath,
 itself based on Adafruit's BME680 driver. I2C only.
+
+This implementation matches the compensation path that was physically
+validated on the project's BME680 breakout before full subsystem integration.
 """
 
 import time
@@ -46,6 +49,10 @@ def _read24(data):
     return value
 
 
+def _signed8(value):
+    return value - 256 if value & 0x80 else value
+
+
 class BME680_I2C:
     def __init__(self, i2c, address=0x77, refresh_rate=10):
         self.i2c = i2c
@@ -62,6 +69,7 @@ class BME680_I2C:
 
         self._read_calibration()
 
+        # Heater settings used by the validated MicroPython implementation.
         self._write(_REG_RES_HEAT0, [0x73])
         self._write(_REG_GAS_WAIT0, [0x65])
 
@@ -111,13 +119,18 @@ class BME680_I2C:
         ]
         self._gas_calibration = [coeff[x] for x in [25, 24, 26]]
 
+        # H1/H2 use packed nibbles in the BME680 calibration block.
         self._humidity_calibration[1] *= 16
         self._humidity_calibration[1] += self._humidity_calibration[0] % 16
         self._humidity_calibration[0] /= 16
 
         self._heat_range = (self._read_byte(0x02) & 0x30) / 16
-        self._heat_val = self._read_byte(0x00)
-        self._sw_err = (self._read_byte(0x04) & 0xF0) / 16
+        self._heat_val = _signed8(self._read_byte(0x00))
+
+        sw_err = (self._read_byte(0x04) & 0xF0) >> 4
+        if sw_err & 0x08:
+            sw_err -= 16
+        self._sw_err = sw_err
 
     def _perform_reading(self):
         elapsed = time.ticks_diff(time.ticks_ms(), self._last_reading)
@@ -160,7 +173,7 @@ class BME680_I2C:
     def read_all(self):
         self._perform_reading()
 
-        calc_temp = (((self._t_fine * 5) + 128) / 256) / 100
+        temperature_c = (((self._t_fine * 5) + 128) / 256) / 100
 
         var1 = (self._t_fine / 2) - 64000
         var2 = ((var1 / 4) * (var1 / 4)) / 2048
@@ -177,21 +190,19 @@ class BME680_I2C:
         if var1 == 0:
             raise RuntimeError("BME680 pressure compensation divide by zero")
 
-        calc_pres = 1048576 - self._adc_pres
-        calc_pres = (calc_pres - (var2 / 4096)) * 3125
-        calc_pres = (calc_pres / var1) * 2
+        pressure = 1048576 - self._adc_pres
+        pressure = (pressure - (var2 / 4096)) * 3125
+        pressure = (pressure / var1) * 2
         var1 = (
             self._pressure_calibration[8]
-            * (((calc_pres / 8) * (calc_pres / 8)) / 8192)
+            * (((pressure / 8) * (pressure / 8)) / 8192)
         ) / 4096
-        var2 = ((calc_pres / 4) * self._pressure_calibration[7]) / 8192
-        var3 = (
-            ((calc_pres / 256) ** 3) * self._pressure_calibration[9]
-        ) / 131072
-        calc_pres += (
+        var2 = ((pressure / 4) * self._pressure_calibration[7]) / 8192
+        var3 = ((pressure / 256) ** 3 * self._pressure_calibration[9]) / 131072
+        pressure += (
             var1 + var2 + var3 + (self._pressure_calibration[6] * 128)
         ) / 16
-        pressure_hpa = calc_pres / 100
+        pressure_hpa = pressure / 100
 
         temp_scaled = ((self._t_fine * 5) + 128) / 256
         var1 = (
@@ -204,10 +215,8 @@ class BME680_I2C:
             * (
                 ((temp_scaled * self._humidity_calibration[3]) / 100)
                 + (
-                    (
-                        temp_scaled
-                        * ((temp_scaled * self._humidity_calibration[4]) / 100)
-                    )
+                    temp_scaled
+                    * ((temp_scaled * self._humidity_calibration[4]) / 100)
                     / 64
                     / 100
                 )
@@ -216,9 +225,7 @@ class BME680_I2C:
         ) / 1024
         var3 = var1 * var2
         var4 = self._humidity_calibration[5] * 128
-        var4 = (
-            var4 + ((temp_scaled * self._humidity_calibration[6]) / 100)
-        ) / 16
+        var4 = (var4 + ((temp_scaled * self._humidity_calibration[6]) / 100)) / 16
         var5 = ((var3 / 16384) * (var3 / 16384)) / 1024
         var6 = (var4 * var5) / 2
         humidity = (((var3 + var6) / 1024) * 1000) / 4096
@@ -229,11 +236,13 @@ class BME680_I2C:
             * _LOOKUP_TABLE_1[self._gas_range]
         ) / 65536
         var2 = ((self._adc_gas * 32768) - 16777216) + var1
+        if var2 == 0:
+            raise RuntimeError("BME680 gas compensation divide by zero")
         var3 = (_LOOKUP_TABLE_2[self._gas_range] * var1) / 512
         gas_ohm = int((var3 + (var2 / 2)) / var2)
 
         return {
-            "temperature_c": calc_temp,
+            "temperature_c": temperature_c,
             "humidity_pct": humidity,
             "pressure_hpa": pressure_hpa,
             "gas_ohm": gas_ohm,
