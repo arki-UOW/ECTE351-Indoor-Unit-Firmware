@@ -81,6 +81,12 @@ class SensorProcessor:
     def process(self, readings):
         """Validate and filter one raw sensor snapshot.
 
+        The SGP40 currently provides its verified raw signal, not Sensirion's
+        VOC Index algorithm output. Therefore `voc_index` is intentionally not
+        treated as an expected live field yet; otherwise the system would report
+        a permanent false stale/fault state for a value we do not actually
+        generate.
+
         Returns:
             processed: validated/filtered values; rejected readings become None.
             validity: per-field boolean validity map.
@@ -94,7 +100,6 @@ class SensorProcessor:
             "temperature_c",
             "humidity_pct",
             "pressure_hpa",
-            "voc_index",
             "co2_ppm",
             "surface_temperature_c",
             "occupied",
